@@ -1,8 +1,15 @@
 library(ggplot2)
 library(dplyr)
+library(tidyr)
 
-
-# run one simulation per parameter value
+# ------------------------------------------------------------------------------
+# Run one simulation per parameter value and collect posterior variances.
+#   values: parameter values to sweep over (M, h2 or N)
+#   one.run: function that takes one parameter value and returns corresponding
+#             posterior variances            
+# Returns:
+# long data frame with columns value and post.var
+# ------------------------------------------------------------------------------
 sweep.var <- function(values, one.run) {
   mat <- sapply(values, one.run)
   colnames(mat) <- values
@@ -11,8 +18,14 @@ sweep.var <- function(values, one.run) {
     mutate(value = factor(value, levels = as.character(values)))
 }
 
-
-# create violin plots
+# ------------------------------------------------------------------------------
+# Create violin + boxplot of posterior variances across parameter values.
+#   df: output of sweep.var
+#   x.label: title of x-axis
+#   x.labels: custom labels for x-axis values (allows for scientific format)
+# Returns:
+#   ggplot object
+# ------------------------------------------------------------------------------
 plot.violin <- function(df, x.label, x.labels = waiver()){ # waiver: works for h2 too
   p <- ggplot(df, aes(x=value, y=post.var)) +
     geom_violin(alpha = 0.35, trim = FALSE, fill = "#0072B2", colour = "#0072B2") +
@@ -31,9 +44,14 @@ plot.violin <- function(df, x.label, x.labels = waiver()){ # waiver: works for h
   p
 }
 
-# create scatter plots
+# ------------------------------------------------------------------------------
+# Create scatter plot of disease probabilities of Method P vs Method U.
+#   df: data frame with columns p.mP, p.mU and panel 
+# Returns:
+#   ggplot object
+# ------------------------------------------------------------------------------
 plot.risk.scatter <- function(df) {
-  ggplot(df, aes(x = p.m1, y = p.m2)) +
+  ggplot(df, aes(x = p.mP, y = p.mU)) +
     geom_point(alpha = 0.35, size = 0.7, color = "#0072B2") +
     geom_abline(slope = 1, intercept = 0, color = "grey60", linetype = "dashed") +
     facet_grid(cols = vars(panel)) +
@@ -48,18 +66,34 @@ plot.risk.scatter <- function(df) {
     labs(x = "Disease probability - Method P", y = "Disease probability - Method U")
 }
 
-
-# plot method comparisons as boxplots
-pastel.colors <- c(
+# ------------------------------------------------------------------------------
+# Settings for the method comparison plots
+# ------------------------------------------------------------------------------
+method.colors <- c(
   "Method P" = "#9ECAE1",
   "Method U" = "#0072B2"
 )
 
+# cost scenarios (FN cost : FP cost) shown in the plots
 scenarios.keep <- data.frame(
   cost.FN = c(10, 3, 1, 1, 1),
   cost.FP = c(1, 1, 1, 3, 10)
 )
 
+# ------------------------------------------------------------------------------
+# Filter simulation results to chosen settings and add derived columns.
+#   df: results data frame (one row per run, method and cost scenario)
+#   M.val: values of M to be kept
+#   K.val: values of K to be kept
+#   N.val: values of N to be kept
+#   h2.val: values of h2 to be kept
+# Returns:
+#   filtered data frame with additional columns:
+#       prop.selected: proportion of individuals classified as high risk
+#       cost.per.ind: realized cost per individual
+#       cost.ratio: cost.FN / cost.FP
+#       scenario: labels of cost scenarios for plotting
+# ------------------------------------------------------------------------------
 prepare.results <- function(df, M.val, K.val, N.val, h2.val) {
   df %>% 
     filter(M %in% M.val, N %in% N.val, K %in% K.val, h2 %in% h2.val, 
@@ -74,7 +108,15 @@ prepare.results <- function(df, M.val, K.val, N.val, h2.val) {
            scenario = factor(paste0(cost.FN, ":", cost.FP),
                              levels = unique(paste0(cost.FN, ":", cost.FP))[order(unique(cost.ratio))]))
 }
-
+# ------------------------------------------------------------------------------
+# Boxplots comparing Method P and Method U across cost scenarios
+#   df: output of prepare.results
+#   facet.var: variable to facet by, N or h2
+#   y.var: name of the column to plot on y-axis, string
+#   y.label: title of y-axis
+# Return:
+#   ggplot object
+# ------------------------------------------------------------------------------
 plot.comparison.boxplot <- function(df, facet.var = c("N", "h2"), y.var, y.label){
   facet.var <- match.arg(facet.var)
   facet.label <- switch(facet.var, 
@@ -84,8 +126,8 @@ plot.comparison.boxplot <- function(df, facet.var = c("N", "h2"), y.var, y.label
   ggplot(df, aes(x = scenario, y = .data[[y.var]], fill = method, color = method)) +
     geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
     facet_grid(cols = vars(.data[[facet.var]]), labeller = as_labeller(facet.label)) +
-    scale_color_manual(values = pastel.colors, name = "Method") +
-    scale_fill_manual(values = pastel.colors, name = "Method") +
+    scale_color_manual(values = method.colors, name = "Method") +
+    scale_fill_manual(values = method.colors, name = "Method") +
     theme_classic() +
     theme(panel.border = element_blank(),        
           panel.grid.major.x = element_blank(),  

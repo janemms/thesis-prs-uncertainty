@@ -1,7 +1,13 @@
-# ----------------------------------------------------------------------------------------------------
-# Function for drawing genetic architecture (allele frequencies + true causal effect sizes) 
-# for a given heritability h2 and number of SNPs M. 
-# ----------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Draw genetic architecture (allele frequencies + true causal effect sizes). 
+#   M: number of SNPs
+#   h2: heritability
+#   ps: allele frequencies (drawn if ps = NULL)
+# Returns:
+#   ps: allele frequencies
+#   true.betas: scaled causal genetic effects
+#   var: variance per SNP (unscaled)    
+# ------------------------------------------------------------------------------
 simulate.true.effects <- function(M, h2, ps = NULL){
   if (is.null(ps)) {
     ps <- runif(M, 0.01, 0.99)
@@ -14,31 +20,40 @@ simulate.true.effects <- function(M, h2, ps = NULL){
   betas <- betas * sqrt(2 * ps * (1 - ps))
   
   return(list(
-    ps = ps, # allele frequencies
-    true.betas = betas, # true (scaled) causal effect sizes
-    var = var # unscaled per-SNP variance
+    ps = ps, 
+    true.betas = betas, 
+    var = var 
   ))
 }
 
-# ----------------------------------------------------------------------------------------------------
-# Function for generating genotypes for n individuals given allele frequencies ps.
-# ----------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Draw genotypes (0,1 or 2 effects alleles) for n individuals.
+#   n: # of individuals
+#   ps: allele frequencies
+# Returns:
+#   X: n x M genotype matrix 
+# ------------------------------------------------------------------------------
 simulate.genotypes <- function(n, ps){
   M <- length(ps)
   X <- matrix(rbinom(n * M, size = 2, prob = rep(ps, each = n)), nrow = n, ncol = M)
   return(X)
 }
 
-# ----------------------------------------------------------------------------------------------------
-# Function for generating GWAS summary statistics for a fixed genetic architecture.
-# ----------------------------------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
+# Draw GWAS summary statistics for a fixed genetic architecture.
+#   N: GWAS sample size
+#   ps: allele frequencies 
+#   true.betas: causal effect sizes 
+#   var: variance per SNP (unscaled)    
+#   K: disease prevalence
+# Returns:
+#   beta.est: estimated genetic effects from GWAS
+#   sigma.est: sampling variance of the estimates
+#   var.scaled: prior variance per SNP (scaled)
+#   ps: allele frequencies
+# ------------------------------------------------------------------------------
 simulate.gwas.stats <- function(N, ps, true.betas, var, K){
-  # N: GWAS sample size
-  # ps: allele frequencies (from simulate.true.effects)
-  # true.betas: true causal effect sizes (from simulate.true.effects)
-  # var: unscaled per-SNP variance (from simulate.true.effects)
-  
+   
   t <- qnorm(1-K)
   M <- length(ps)
   var.scaled <- var * 2 * ps * (1 - ps)
@@ -60,21 +75,32 @@ simulate.gwas.stats <- function(N, ps, true.betas, var, K){
   ))
 }
 
-
-# ----------------------------------------------------------------------------------------------------
-# Function for calculating posterior mean (PRS) and variance of genetic value
-# ----------------------------------------------------------------------------------------------------
-compute.prs.closed <- function(X, post.mean, post.var, true.betas) {
-  pgs.mean <- as.numeric(post.mean %*% t(X))
-  pgs.var  <- as.numeric((X^2) %*% post.var)
-  #true.gv  <- as.numeric(true.betas %*% t(X))
-  list(pgs = pgs.mean, pgs.var = pgs.var)#, true.gv = true.gv)
+# ------------------------------------------------------------------------------
+# Calculate posterior mean (PRS) and variance of genetic value
+#   X: n x M genotype matrix (standardized)
+#   post.mean: posterior mean of each SNP effect
+#   post.var: posterior variance of each SNP effect
+# Returns:
+#   prs: PRS of each individual
+#   prs.var: posterior variance of genetic value for each individual
+# ------------------------------------------------------------------------------
+compute.prs <- function(X, post.mean, post.var) {
+  prs.mean <- as.numeric(post.mean %*% t(X))
+  prs.var  <- as.numeric((X^2) %*% post.var)
+  list(prs = prs.mean, prs.var = prs.var)
 }
 
 
-# ----------------------------------------------------------------------------------------------------
-# Function for calculating summary metrics for a classification given classification costs
-# ----------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Calculate classification metrics and realized costs for a high-risk selection.
+#   hrisk: indices of individuals classified as high risk
+#   case.status: true 0/1 disease status of all individuals
+#   C_FP: cost of a false positive classification
+#   C_FN: cost of a false negative classification
+#   n: # of classified individuals
+# Returns:
+#   data frame with FP, FN, TP, TN, PPV, NPV, TPR, cost, n.selected
+# ------------------------------------------------------------------------------
 compute.metrics <- function(hrisk, case.status, C_FP, C_FN, n) {
   selected <- logical(n)
   selected[hrisk] <- TRUE
@@ -95,11 +121,16 @@ compute.metrics <- function(hrisk, case.status, C_FP, C_FN, n) {
              n.selected = sum(selected))
 }
 
-# ----------------------------------------------------------------------------------------------------
-# Function for filtering out invariant SNPs and standardizing genotypes.
-# Returns filtered X plus correspondingly filtered architecture/GWAS/posterior objects.
-# ----------------------------------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------------
+# Remove invariant SNPs and standardize genotypes.
+#   X: genotype matrix
+#   ps: allele frequencies
+#   ...: other vectors/matrices to be filtered
+# Returns:
+#   X: filtered and scaled genotype matrix
+#   idx.filter: logical vector of kept SNPs
+#   ...: other filtered objects
+# ------------------------------------------------------------------------------
 filter.and.scale.geno <- function(X, ps, ...){
   
   idx.filter <- apply(X, 2, sd) > 0 # filter our SNPs with no variation
@@ -119,8 +150,17 @@ filter.and.scale.geno <- function(X, ps, ...){
   
   return(c(list(X = X, idx.filter = idx.filter), extras.filtered))
 }
-
-# simulate one target population: effects, genotypes, filtering, scaling
+# ------------------------------------------------------------------------------
+# Simulate one target population: effects, genotypes, filtering, scaling.
+#   M: # of SNPs
+#   h2: heritability
+#   n.target: # of individuals
+# Returns:
+#   effects: output of simulate.true.effects (ps, true.betas, var)
+#   X: scaled genotypes
+#   true.betas: filtered causal effects
+#   idx: logical vector of kept SNPs
+# ------------------------------------------------------------------------------
 simulate.population <- function(M, h2, n.target) {
   effects <- simulate.true.effects(M = M, h2 = h2)
   geno <- simulate.genotypes(n.target, ps = effects$ps)
@@ -129,7 +169,14 @@ simulate.population <- function(M, h2, n.target) {
   list(effects = effects, X = filt$X, true.betas = filt$true.betas, idx = filt$idx.filter)
 }
 
-# simulate disease status for a population
+# ------------------------------------------------------------------------------
+# Simulate disease status from the liability threshold model.
+#   pop: output of simulate.population
+#   h2: heritability
+#   K: disease prevalence
+# Returns:
+#   a vector of 0/1 disease statuses
+# ------------------------------------------------------------------------------
 simulate.case.status <- function(pop, h2, K) {
   true.gv <- as.numeric(pop$true.betas %*% t(pop$X))
   e <- rnorm(length(true.gv), mean = 0, sd = sqrt(1 - h2))
@@ -137,34 +184,48 @@ simulate.case.status <- function(pop, h2, K) {
   as.integer(liability > qnorm(1-K))
 }
 
-# compute posterior variance of gv for each individual for a single GWAS draw
+# ------------------------------------------------------------------------------
+# Calculate each individual's PRS and the posterior variance of genetic value 
+# for a single GWAS draw.
+#   pop: output of simulate.population
+#   N: GWAS sample size
+#   K: disease prevalence
+# Returns:
+#   prs: PRS of each individual
+#   prs.var: posterior variance of genetic value per individual
+# ------------------------------------------------------------------------------
 prs.posterior.var <- function(pop, N, K) {
   e <- pop$effects
   gwas <- simulate.gwas.stats(N, e$ps, e$true.betas, e$var, K)
   post.mean <- (gwas$var.scaled / (gwas$var.scaled + gwas$sigma.est)) * gwas$beta.est
   post.var <- (gwas$var.scaled * gwas$sigma.est / (gwas$var.scaled + gwas$sigma.est)) 
-  compute.prs.closed(pop$X, post.mean[pop$idx], post.var[pop$idx], pop$true.betas)
+  compute.prs(pop$X, post.mean[pop$idx], post.var[pop$idx])
 }
 
-# compute disease risks under the two methods
+# ------------------------------------------------------------------------------
+# Compute disease risk for each individual under two methods.
+#   prs: output of compute.prs (prs, prs.var)
+#   h2: heritability
+#   K: disease prevalence
+# Returns:
+#   p.mP: risk under LTM using PRS only
+#   p.mU: risk under LTM when including posterior variance of genetic value
+# ------------------------------------------------------------------------------
 disease.probs <- function(prs, h2, K) {
   t <- qnorm(1 - K)
   data.frame(
-    p.m1 = pnorm(t, mean = prs$pgs, sd = sqrt(1 - h2), lower.tail = FALSE),
-    p.m2 = pnorm(t, mean = prs$pgs, sd = sqrt(1 - h2 + prs$pgs.var), lower.tail = FALSE)
+    p.mP = pnorm(t, mean = prs$prs, sd = sqrt(1 - h2), lower.tail = FALSE),
+    p.mU = pnorm(t, mean = prs$prs, sd = sqrt(1 - h2 + prs$prs.var), lower.tail = FALSE)
   )
 }
 
-# expected posterior variance of GV
-# expected.post.var <- function(M, h2, N, K) {
-#   num <- K*(1-K)
-#   phi.t.2 <- dnorm(qnorm(1-K))^2
-#   denom <- num/h2 + N*phi.t.2/M
-#   num/denom
-# }
-
-
-# get unique seed for a (row, rep) pair
+# ------------------------------------------------------------------------------
+# Draw a unique, reproducible seed for a (row, rep) pair.
+#   row: row index of simulation grid
+#   rep: replicate number
+#   base.seed: initial seed of the simulation 
+# Returns:
+#   integer seed for R Random RNG
 get.seed <- function(row, rep, base.seed = 2025071) {
   base.seed + row * 100000L + rep
 }
