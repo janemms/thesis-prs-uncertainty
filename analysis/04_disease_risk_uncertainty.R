@@ -64,7 +64,10 @@ plot.risk.interval <- ggplot(plot.df, aes(x = prs)) +
     fill = "Prevalence K"
   ) +
   theme_classic() +
-  theme(
+  theme(panel.border = element_blank(), 
+    panel.grid.major.y = element_line(color = "grey90", linewidth = 0.5),
+    panel.grid.major.x = element_line(color = "grey90", linewidth = 0.5),
+    axis.line = element_line(color = "black", linewidth = 0.5), 
     legend.position = "bottom",
     axis.text = element_text(size = 10),
     axis.title = element_text(size = 12),
