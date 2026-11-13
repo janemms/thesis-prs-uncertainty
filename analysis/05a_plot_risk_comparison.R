@@ -8,7 +8,7 @@ library(ggplot2)
 # Comparison of disease risks predicted by Method P (point estimate) and 
 #                                          Method U (uncertainty-aware).
 # Input: results/risk_comparison_all.rds
-# Output: figures/risk-comparison-N.png, figures/risk-comparison-N.png
+# Output: figures/risk-comparison-N.png, figures/risk-comparison-h2.png
 # ==============================================================================
 
 # simularion results: one row per individual and parameter setting
@@ -40,14 +40,3 @@ p.h2 <- risks %>%
 print(p.h2)
 ggsave(here("figures", "risk-comparison-h2.png"), p.h2, width = 10, height = 5, dpi = 300)
 
-# ----
-# 3. Effect of disease prevalence K
-#     Fixed: population, M, N, h2, Varied: K, new GWAS draw for each K
-# ----
-p.K <- risks %>% 
-  filter(pop.idx == 1, M == 10000, N == 50000, h2 == 0.5) %>%
-  mutate(panel = paste0("K = ", K),
-         panel = factor(panel, levels = unique(panel))) %>% 
-  plot.risk.scatter()
-
-print(p.K)

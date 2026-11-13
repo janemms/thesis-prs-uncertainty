@@ -63,25 +63,6 @@ for (M.idx in seq_along(M.vals)) {
     # ----
     pop <- simulate.population(M, h2, n.target)
     case.status <- simulate.case.status(pop, h2, K)
-    # 
-    # true.effects <- simulate.true.effects(M = M, h2 = h2) # scaled causal effects
-    # genotypes <- simulate.genotypes(n = n.target, ps = true.effects$ps) 
-    # e <- rnorm(n.target, mean = 0, sd = sqrt(1 - h2))
-    # 
-    # # Filter invariant SNPs and compute true.gv
-    # filtered.fixed <- filter.and.scale.geno(genotypes, true.effects$ps, true.betas = true.effects$true.betas) 
-    # X <- filtered.fixed$X
-    # true.betas <- filtered.fixed$true.betas
-    # idx.filter <- filtered.fixed$idx.filter
-    # true.gv <- as.numeric(true.betas %*% t(X))
-    # 
-    cat(sprintf("  -> SNPs kept: %d / %d\n", sum(idx.filter), length(idx.filter)))
-    # 
-    # # liability and disease status
-    # g <- true.gv # genetic component
-    # liability <- g + e 
-    # t <- qnorm(1-K) # threshold for disease
-    # case.status <- as.integer(liability > t)
     
     for (n.idx in seq_along(N.vals)){
       N <- N.vals[n.idx]
@@ -95,20 +76,6 @@ for (M.idx in seq_along(M.vals)) {
         
         prs <- prs.posterior.var(pop, N, K)
                 
-        # # single GWAS draw: beta_hat ~ true_effects + sampling noise given N
-        # gwas <- simulate.gwas.stats(N, true.effects$ps, true.effects$true.betas, true.effects$var, K)
-        # 
-        # # posterior mean and variance per SNP
-        # post.mean <- (gwas$var.scaled / (gwas$var.scaled + gwas$sigma.est)) * gwas$beta.est
-        # post.var <- (gwas$var.scaled * gwas$sigma.est / (gwas$var.scaled + gwas$sigma.est)) 
-        # 
-        # # filtered posterior mean and variance
-        # post.mean.filtered <- post.mean[idx.filter]
-        # post.var.filtered <- post.var[idx.filter]
-        # 
-        # # compute prs with closed form posterior
-        # prs <- compute.prs(X, post.mean.filtered, post.var.filtered)
-        # 
         # ----
         # 4. Predict disease risk and classify individuals
         #     Method P: liability | PRS ~ N(PRS, 1 - h2)
@@ -123,33 +90,15 @@ for (M.idx in seq_along(M.vals)) {
           C_FN <- cost.scenarios$C_FN[cost.row]
           
           prob.cutoff <- C_FP / (C_FP + C_FN)
-          # 
-          # prob.over.P <- pnorm(t, mean = prs$prs, sd = sqrt(1 - h2), lower.tail = FALSE) 
-          # prob.over.U <- pnorm(t, mean = prs$prs, sd = sqrt(prs$prs.var + 1 - h2), lower.tail = FALSE)
-          # 
-          # hrisk.P <- which(prob.over.P > prob.cutoff)
-          # hrisk.U <- which(prob.over.U > prob.cutoff)
-          # 
+      
           # ----
           # 5. Classify, compute metrics and save results
           # ----
-          # 
-          # m.P <- compute.metrics(hrisk.P, case.status, C_FP, C_FN, n.target)
-          # m.U <- compute.metrics(hrisk.U, case.status, C_FP, C_FN, n.target)
-          # 
+       
           for (met in c("point.estimate", "uncertainty.aware") ) {
             
             hrisk <- which(probs[[risk.cols[[met]]]] > prob.cutoff)
             m <- compute.metrics(hrisk, case.status, C_FP, C_FN, n.target)
-            # 
-            # if (met == "point.estimate"){
-            #   m <- m.P
-            # } else {
-            #   m <- m.U
-            # } 
-            # var(true.gv)
-            # var(liability)
-            # mean(case.status)
 
             res.idx <- res.idx + 1
             results[[res.idx]] <- data.frame(

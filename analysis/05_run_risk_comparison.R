@@ -10,7 +10,7 @@ source(here("R", "thesis-functions.R"))
 # Risks are predicted under the liability threshold model
 #
 # Output: results/risk_comparison_all.rds   disease risks for both methods (one row per individual)
-#         results/risk_comparison.summary   mean and max absolute differences between risks give by methods
+#         results/risk_comparison_summary.rds   mean and max absolute differences between risks give by methods
 # ==============================================================================
 
 # ----
