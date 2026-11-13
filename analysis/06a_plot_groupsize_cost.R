@@ -42,13 +42,13 @@ ggsave(here("figures", "prop-selected-h2.png"), plot = prop.h2, width = 8, heigh
 # effect of N
 cost.N <- results.df %>%
   prepare.results(M = 10000, K = 0.2, N = c(50000, 200000), h = 0.5) %>% 
-  plot.comparison.boxplot("N", "cost.per.ind", "Realized cost")
+  plot.comparison.boxplot("N", "cost.per.ind", "Realized cost per individual")
 print(cost.N)
 ggsave(here("figures", "realized-cost-N.png"), plot = cost.N, width = 8, height = 5, dpi = 300)
 
 # effect of h2
 cost.h2 <- results.df %>%
   prepare.results(M = 10000, K = 0.2, N = 50000, h = c(0.2, 0.8)) %>% 
-  plot.comparison.boxplot("h2", "cost.per.ind", "Realized cost")
+  plot.comparison.boxplot("h2", "cost.per.ind", "Realized cost per individual")
 print(cost.h2)
 ggsave(here("figures", "realized-cost-h2.png"), plot = cost.h2, width = 8, height = 5, dpi = 300)
